@@ -8,7 +8,7 @@ objectives:
 # TL;DR
 
 - …
-- ….
+- …
 - …
 
 # Overview
@@ -45,29 +45,77 @@ If you're curious to go more in depth take at some [open source browser extensio
 
 ### How MWA is different
 
-Mobile Wallet Adapter (MWA) is different. In the web world, we just need to inject some code into the `window` object to access our wallets. Mobile devices work differently. Apps can't just access other apps. 
+Mobile Wallet Adapter (MWA) is different. In the web world, we just need to inject some code into the `window` object to access our wallets. Mobile devices work differently, apps can't just arbitrarily access other apps. So how do they communicate? In Android, inter app interaction is done through [`Activities` and `Intents`](https://developer.android.com/guide/components/intents-filters). Once the interaction is initiated MWA uses websocket to communicate and offer the functions we're used to in the web wallet adapter. We won't get into the weeds on how the underlying communication works here, if you want to know the nitty gritty, read the [MWA specs](https://solana-mobile.github.io/mobile-wallet-adapter/spec/spec.html).
 
 
-// CONTINUE
+
+
+## How to work with MWA
+
+
+transact is like `getWallets`
+authorization is like `.connect`
+
+- Everything 
+
+            ```tsx 
+            transact(async (wallet: Web3MobileWallet) => {
+                const authResult = await authorizeSession(wallet);
+                const latestBlockhashResult = await connection.getLatestBlockhash();
+
+                let ix: TransactionInstruction;
+                if(shouldIncrement){
+                    ix = await program.methods
+                    .increment()
+                    .accounts({counter: counterAddress, user: authResult.publicKey})
+                    .instruction();
+                } else {    
+                    ix = await program.methods
+                    .decrement()
+                    .accounts({counter: counterAddress, user: authResult.publicKey})
+                    .instruction();
+                }
+
+                const balance = await connection.getBalance(authResult.publicKey);
+                console.log(`Wallet ${authResult.publicKey} has a balance of ${balance}`);
+
+                // When on Devnet you may want to transfer SOL manually per session, due to Devnet's airdrop rate limit
+                const minBalance = LAMPORTS_PER_SOL / 1000;
+                if(balance < minBalance){
+                  console.log(`requesting airdrop for ${authResult.publicKey} on ${connection.rpcEndpoint}`);
+                  await connection.requestAirdrop(authResult.publicKey, minBalance * 2);
+                }
+
+                const transaction = new Transaction({
+                    ...latestBlockhashResult,
+                    feePayer: authResult.publicKey,
+                }).add(ix);
+
+                const signature = await wallet.signAndSendTransactions({
+                    transactions: [transaction],
+                });
+
+                showToastOrAlert(`Transaction successful! ${signature}`);
+
+            }).catch((e)=>{
+                console.log(e);
+                showToastOrAlert(`Error: ${JSON.stringify(e)}`);
+            }).finally(()=>{
+                setIsTransactionInProgress(false);
+            })
+        }```
 
 - A short paragraph on how MWA uses a entrypoint component. All requests have to go through this entrypoint component.
 - A short para on how we can interact with session updates through emits.
 - A short para on extra functions provided by the MWA in addition to base keypair functions.  Examples include authorize, deauthorize, getCapabilities, cloneAuthorization, etc.
 
-### Caveats
+### Listening and Handling Requests
 
-- A note regarding this package still being in alpha and not production ready, but has a stable API
-
-## Operations
-
-List of all the operations supported by MWA and breakdown of those operations in the following manner.
+Explain the `useMobileWalletAdapterSession` hook and how it allows us to capture session event emits.
 
 ### Non-privileged Methods
 
 - Authorize
-    - Explanation
-    - Link to the spec doc
-- Reauthorize
     - Explanation
     - Link to the spec doc
 - Deauthorize
@@ -91,79 +139,6 @@ List of all the operations supported by MWA and breakdown of those operations in
 - Clone Authorization
     - Explanation
     - Link to the spec doc
-
-## Illustrations
-
-### Authorizing a Dapp
-
-The diagram from the spec doc and link to the spec doc.
-
-### Authorizing and Sign Transaction
-
-The diagram from the spec doc and link to the spec doc.
-
-### Reauthorizing and Sign Transaction
-
-The diagram from the spec doc and link to the spec doc.
-
-## Implementing MWA Component
-
-### Dependencies
-
-```bash
-#provide the npm command to install solana-web3 and MWA dependencies
-```
-
-### What is a MWA Component
-
-Explain how MWA Component is a react component and how it is called using the `solana-wallet://` endpoint and how it will determine which UI to render based on the request initiated by the requesting Dapp.
-
-**Dapp Identity Verification:**
-
-Explain what is Dapp Identity
-
-Explain `solana-wallet://` as a wallet endpoint and all wallets associated with solana respond to requests which call this endpoint. That’s how one gets to choose a wallet if the user has multiple supported wallets installed. 
-
-Explain how this component will be rendered when an intent for `solana-wallet://` is sent.
-
-### Creating Entrypoint
-
-Explain that entrypoint simply means a react component which will be shown to user when he selects our fake wallet app to do any operation.
-
-```tsx
-//Creation of the MWAComponent and registering it in the AppRegistry
-```
-
-### Listening and Handling Requests
-
-Explain the `useMobileWalletAdapterSession` hook and how it allows us to capture session event emits.
-
-### Storing session and current request
-
-```tsx
-//show session and request handler method pseudo code
-```
-
-### Handling Authorization Request
-
-```tsx
-//show pseudo code switching on request type and returning auth component
-```
-
-### Handling Sign and Send Transaction Request
-
-```tsx
-//show pseudo code switching on request type and returning sign and send transaction
-//component
-```
-
-### Handling Sign Transaction/Sign Messages Request
-
-```tsx
-//show pseudo code switching on request type and returning signing component
-```
-
-## Conclusion
 
 # Demo
 
