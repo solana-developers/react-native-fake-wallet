@@ -1,16 +1,7 @@
-# MWA Deep Dive
-
-# Repo
-
-[https://github.com/Unboxed-Software/solana-rn-fake-wallet.git](https://github.com/Unboxed-Software/solana-rn-fake-wallet.git)
-
-# Lesson
-
 ---
 title: MWA Deep Dive
 objectives:
-- Explain the...
-- Explain how...
+- 
 - Use...
 ---
 
@@ -22,20 +13,42 @@ objectives:
 
 # Overview
 
+Solana integrated mobile dapps are the future. Banking, gaming, and socials have something to gain from the blockchain, and they all have a place in mobile. However, you don't want just any app you download to have unfettered access to your private keys. So these dapps need a standard to communicate with the blockchain non-invasively, quickly and securely. This is where the Mobile Wallet Adapter (MWA) comes in. It is the transport layer to connect your dapps to your wallet.
+
 ## What is MWA
 
-### How does a normal wallet work?
+Mobile Wallet Adapter (MWA) is the mobile connection between dapps and wallets. Much like the [wallet adapter](https://github.com/solana-labs/wallet-adapter) we're used to in the web, MWA allows us to create native mobile dapps. However, since the web and mobile are different platforms, we have to approach the app-wallet connection differently.
 
-- an abstraction for the following Keypair functions: `sign message`, `sign transaction`, etc…
-- The jist: Wallet browser stores keypair safely, follows the api standard for the above functions, returns signed messages and transactions
-- But what happens if we want to use mobile native wallets…
-    
-    Describe a scenario in which we want to use mobile wallets and how normal wallets won’t be a feasible choice for this scenario.
-    
-    Enter MWA!
-    
+At it's core, a wallet app is actually really simple. It's just a secure wrapper around you `Keypair`. Outside applications can request the wallet signs transactions without ever reading the private key. This interaction is what the web's wallet adapter and mobile's MWA define.
+
+### How does a web wallet work?
+
+A web wallet is simply a browser extension that stores `Keypairs` and allows the browser to request access to it's functions. It is the wallet's job to follow the [wallet standard](https://github.com/wallet-standard/wallet-standard), which defines what functions should be available to the browser:
+
+Wallet Registration
+- `registerWallet`
+- `getWallets`
+
+Wallet Functions
+- `signAndSendTransaction`
+- `signIn`
+- `signTransaction`
+- `signMessage`
+
+These functions are all available to the browser through the global `window` object. 
+
+The browser extension registers itself as a wallet. The wallet adapter looks for these registered wallets and allows the client to connect and interact with them.
+
+How does it do this? A browser extension is basically just a webapp with a few extra caveats. It can run isolated javascript and can inject functions into the `window`. So the transport layer here is just extra javascript code as far as the browser is concerned. 
+
+If you're curious to go more in depth take at some [open source browser extensions](https://github.com/solana-labs/browser-extension/tree/master). 
 
 ### How MWA is different
+
+Mobile Wallet Adapter (MWA) is different. In the web world, we just need to inject some code into the `window` object to access our wallets. Mobile devices work differently. Apps can't just access other apps. 
+
+
+// CONTINUE
 
 - A short paragraph on how MWA uses a entrypoint component. All requests have to go through this entrypoint component.
 - A short para on how we can interact with session updates through emits.
