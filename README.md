@@ -1,15 +1,14 @@
 ---
 title: MWA Deep Dive
 objectives:
-- 
-- Use...
+- Describe the differences between connecting wallets on the web vs on a mobile device
+- Connect to and sign transactions from a mobile wallet
+- Create a very simple mobile wallet
 ---
 
 # TL;DR
-
-- …
-- …
-- …
+- Mobile and Web dapps handle their wallet-app connection differently
+- Wallets are just wrappers around a keypair
 
 # Overview
 
