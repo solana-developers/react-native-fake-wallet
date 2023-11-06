@@ -35,9 +35,7 @@ Wallet Functions
 - `signTransaction`
 - `signMessage`
 
-These functions are all available to the browser through the global `window` object. 
-
-The browser extension registers itself as a wallet. The wallet adapter looks for these registered wallets and allows the client to connect and interact with them.
+These functions are all available to the browser through the global `window` object. The browser extension registers itself as a wallet. The wallet adapter looks for these registered wallets and allows the client to connect and interact with them.
 
 How does it do this? A browser extension is basically just a webapp with a few extra caveats. It can run isolated javascript and can inject functions into the `window`. So the transport layer here is just extra javascript code as far as the browser is concerned. 
 
@@ -45,102 +43,124 @@ If you're curious to go more in depth take at some [open source browser extensio
 
 ### How MWA is different
 
-Mobile Wallet Adapter (MWA) is different. In the web world, we just need to inject some code into the `window` object to access our wallets. Mobile devices work differently, apps can't just arbitrarily access other apps. So how do they communicate? In Android, inter app interaction is done through [`Activities` and `Intents`](https://developer.android.com/guide/components/intents-filters). Once the interaction is initiated MWA uses websocket to communicate and offer the functions we're used to in the web wallet adapter. We won't get into the weeds on how the underlying communication works here, if you want to know the nitty gritty, read the [MWA specs](https://solana-mobile.github.io/mobile-wallet-adapter/spec/spec.html).
-
-
+Mobile Wallet Adapter (MWA) is different. In the web world, we just need to inject some code into the `window` object to access our wallets. Mobile devices work differently, apps can't just arbitrarily access other apps. So how do they communicate? In Android, inter app interaction is done through [`Activities` and `Intents`](https://developer.android.com/guide/components/intents-filters). Once the interaction is initiated MWA uses websocket to communicate and offer the functions we're used to in the web wallet adapter. We won't get into the weeds on how the underlying communication works here, if you want to know the nitty gritty, read the [MWA specs](https://solana-mobile.github.io/mobile-wallet-adapter/spec/spec.html). All you need to know is that `MWA` does all of the heavy lifting here.
 
 
 ## How to work with MWA
+Now we know the technical differences of web vs mobile, let's explore how that changes how we program our apps.
+
+In the web, to find and connect to wallets we need to wrap the application with `WalletProvider` and then use the `useWallet` hook. From there we can see all of the `wallets`, and `select` one to `connect` to.
+```tsx
+      // Parent
+      <WalletProvider wallets={wallets}>
+          {children}
+      </WalletProvider>
+
+      // Child
+      const {wallets, select, connect} = useWallet();
+      const wallet = wallets[0] // choose a wallet
+      select(wallet); // select the wallet
+      connect(); // connect
+```
+
+In MWA, this looks a little different. We don't *need* any providers, we just need to call the `transact` function. This will give us a context with the user selected wallet. Behind the scenes this function searches the devices for active Solana wallets, and allows you connect with them using a bottom modal. Then, if you want the wallet to perform any *privileged* method like signing a transaction, you'll need to authorize it. We do that by calling `wallet.authorize()` with some information. This will return some `authResults`, including an `authToken` you can use in `wallet.reauthorize()` for subsequent calls.
+```tsx
+  // Child
+  transact(async (wallet: Web3MobileWallet) => { // returns you the context of the user selected wallet
+    const authResult = wallet.authorize(
+      {
+        cluster: "devnet", 
+        identity: {name: 'Solana Counter Incrementor'}
+      }
+    ); // Authorizes the wallet 
 
 
-transact is like `getWallets`
-authorization is like `.connect`
+    const authToken = authResult.auth_token; // save this for the wallet.reauthorize() function
+    const publicKey = authResult.selectedAccount.publicKey
+  });
+```
+Good to note that all methods except `authorize` and `deauthorize` are *privileged* methods. So you'll want to track if a wallet is authorized or not and call `wallet.reauthorize()` when it is.
 
-- Everything 
+A very simple way to do this is:
+```tsx
+  const APP_IDENTITY = {name: 'Solana Counter Incrementor'}
+  const [auth, setAuth] = useState<string | null>(null)
+  // Child
+  transact(async (wallet: Web3MobileWallet) => { // returns you the context of the user selected wallet
 
-            ```tsx 
-            transact(async (wallet: Web3MobileWallet) => {
-                const authResult = await authorizeSession(wallet);
-                const latestBlockhashResult = await connection.getLatestBlockhash();
+    let authResult;
+    if(auth){
+      authResult = wallet.reauthorize({
+            auth_token: auth,
+            identity: APP_IDENTITY,
+      })
+    } else {
+      authResult = wallet.authorize(
+        {
+          cluster: "devnet", 
+          identity: APP_IDENTITY
+        }
+      ); // Authorizes the wallet 
+      setAuth(authResult.auth_token)
+    }
 
-                let ix: TransactionInstruction;
-                if(shouldIncrement){
-                    ix = await program.methods
-                    .increment()
-                    .accounts({counter: counterAddress, user: authResult.publicKey})
-                    .instruction();
-                } else {    
-                    ix = await program.methods
-                    .decrement()
-                    .accounts({counter: counterAddress, user: authResult.publicKey})
-                    .instruction();
-                }
+    const publicKey = authResult.selectedAccount.publicKey
+  });
+```
 
-                const balance = await connection.getBalance(authResult.publicKey);
-                console.log(`Wallet ${authResult.publicKey} has a balance of ${balance}`);
+Note, this does not handle errors or user rejections.
 
-                // When on Devnet you may want to transfer SOL manually per session, due to Devnet's airdrop rate limit
-                const minBalance = LAMPORTS_PER_SOL / 1000;
-                if(balance < minBalance){
-                  console.log(`requesting airdrop for ${authResult.publicKey} on ${connection.rpcEndpoint}`);
-                  await connection.requestAirdrop(authResult.publicKey, minBalance * 2);
-                }
+So we know how to connect to a wallet in both web and mobile, let's look at the difference between our main methods: `signAndSendTransactions`, `signMessages`, and `signTransactions`.
 
-                const transaction = new Transaction({
-                    ...latestBlockhashResult,
-                    feePayer: authResult.publicKey,
-                }).add(ix);
+In web we just grab these methods from the `useWallet` hook, and make sure we're connected before calling them:
+```tsx
+  const {connected, signAllTransactions, signMessage, sendTransaction} = useWallet();
 
-                const signature = await wallet.signAndSendTransactions({
-                    transactions: [transaction],
-                });
+  if(connected){
+    signAllTransactions(...);
+    signMessage(...);
+    sendTransaction(...);
+  }
+```
 
-                showToastOrAlert(`Transaction successful! ${signature}`);
+For MWA we simply call the functions on the `wallet` context we are given from the `transact` function. 
+```tsx
+  const APP_IDENTITY = {name: 'Solana Counter Incrementor'}
+  const [auth, setAuth] = useState<string | null>(null)
+  // Child
+  transact(async (wallet: Web3MobileWallet) => { // returns you the context of the user selected wallet
 
-            }).catch((e)=>{
-                console.log(e);
-                showToastOrAlert(`Error: ${JSON.stringify(e)}`);
-            }).finally(()=>{
-                setIsTransactionInProgress(false);
-            })
-        }```
+    let authResult;
+    if(auth){
+      authResult = wallet.reauthorize({
+            auth_token: auth,
+            identity: APP_IDENTITY,
+      })
+    } else {
+      authResult = wallet.authorize(
+        {
+          cluster: "devnet", 
+          identity: APP_IDENTITY
+        }
+      ); // Authorizes the wallet 
+      setAuth(authResult.auth_token)
+    }
 
-- A short paragraph on how MWA uses a entrypoint component. All requests have to go through this entrypoint component.
-- A short para on how we can interact with session updates through emits.
-- A short para on extra functions provided by the MWA in addition to base keypair functions.  Examples include authorize, deauthorize, getCapabilities, cloneAuthorization, etc.
+    const publicKey = authResult.selectedAccount.publicKey
 
-### Listening and Handling Requests
+    wallet.signAndSendTransactions(...)
+    wallet.signMessages(...)
+    wallet.signTransactions(...)
+  });
+```
 
-Explain the `useMobileWalletAdapterSession` hook and how it allows us to capture session event emits.
+Note that every time you want to call these methods you will have to call `wallet.authorize/reauthorize()`. 
 
-### Non-privileged Methods
-
-- Authorize
-    - Explanation
-    - Link to the spec doc
-- Deauthorize
-    - Explanation
-    - Link to the spec doc
-- Get Capabilities
-    - Explanation
-    - Link to the spec doc
-
-### Privileged Methods
-
-- Sign Transactions
-    - Explanation
-    - Link to the spec doc
-- Sign and Send Transactions
-    - Explanation
-    - Link to the spec doc
-- Sign messages
-    - Explanation
-    - Link to the spec doc
-- Clone Authorization
-    - Explanation
-    - Link to the spec doc
+And that's it! You should have enough information to get started! The Solana mobile team has put in a lot of work to make the development experience as seamless as possible between the two. 
 
 # Demo
+
+Today we are going to build a mobile wallet. We're doing this so we what happens on both sides of the MWA in hopes of demystifying the app-wallet relationship.
 
 ### 0. Prerequisites
 
