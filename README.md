@@ -1368,6 +1368,8 @@ Congratulations!
 # Challenge
 Now it's your turn, try and implement the last two functions, `SignMessagesRequest` and `SignTransactionsRequest`.
 
+The solution [code is on Github](https://github.com/Unboxed-Software/react-native-fake-solana-wallet/tree/solution).
+
 ```tsx
       case MWARequestType.SignMessagesRequest:
       case MWARequestType.SignTransactionsRequest:
