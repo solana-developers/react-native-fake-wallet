@@ -1,14 +1,11 @@
 import {
-  Connection,
   Keypair,
-  SendOptions,
-  TransactionSignature,
   VersionedTransaction,
 } from '@solana/web3.js';
 import {useState} from 'react';
 import {
   MWARequestFailReason,
-  SignAndSendTransactionsRequest,
+  SignTransactionsRequest,
   resolve,
 } from '../lib/mobile-wallet-adapter-walletlib/src';
 
@@ -16,30 +13,29 @@ import {useWallet} from '../components/WalletProvider';
 import {Text, View} from 'react-native';
 import AppInfo from '../components/AppInfo';
 import ButtonGroup from '../components/ButtonGroup';
-import {decode} from 'bs58';
-import { sendSignedTransactions, signTransactionPayloads } from '../utils/utils';
+import { signTransactionPayloads } from '../utils/utils';
 
-export interface SignAndSendTransactionScreenProps {
-  request: SignAndSendTransactionsRequest;
+
+export interface SignTransactionsScreenProps {
+  request: SignTransactionsRequest;
 }
 
-function SignAndSendTransactionScreen(
-  props: SignAndSendTransactionScreenProps,
+function SignTransactionsScreen(
+  props: SignTransactionsScreenProps,
 ) {
   const {request} = props;
-  const {wallet, connection} = useWallet();
+  const {wallet} = useWallet();
   const [loading, setLoading] = useState(false);
 
   if (!wallet) {
     throw new Error('Wallet is null or undefined');
   }
 
-  const signAndSendTransaction = async (
+  const signTransactions = async (
     wallet: Keypair,
-    connection: Connection,
-    request: SignAndSendTransactionsRequest,
+    request: SignTransactionsRequest,
   ) => {
-    const [validSignatures, signedTransactions] = signTransactionPayloads(
+    const [validSignatures, signedPayloads] = signTransactionPayloads(
       wallet,
       request.payloads,
     );
@@ -52,29 +48,15 @@ function SignAndSendTransactionScreen(
       return;
     }
 
-    const [validTransactions, transactionSignatures] =
-      await sendSignedTransactions(
-        signedTransactions,
-        request.minContextSlot ? request.minContextSlot : undefined,
-        connection,
-      );
-
-    if (validTransactions.includes(false)) {
-      resolve(request, {
-        failReason: MWARequestFailReason.InvalidSignatures,
-        valid: validTransactions,
-      });
-      return;
-    }
-
-    resolve(request, {signedTransactions: transactionSignatures});
+    resolve(request, {signedPayloads});
   };
 
-  const signAndSend = async () => {
+  const signAllTransactions = async () => {
     if (loading) return;
     setLoading(true);
     try {
-      await signAndSendTransaction(wallet, connection, request);
+
+      await signTransactions(wallet, request);
     } catch (e) {
       const valid = request.payloads.map(() => false);
       resolve(request, {
@@ -93,7 +75,7 @@ function SignAndSendTransactionScreen(
   return (
     <View>
       <AppInfo
-        title="Sign and Send Transaction"
+        title="Sign Transactions"
         appName={request.appIdentity?.identityName}
         cluster={request.cluster}
         scope={'app'}
@@ -104,9 +86,9 @@ function SignAndSendTransactionScreen(
         {request.payloads.length > 1 ? 'payloads' : 'payload'} to sign.
       </Text>
       <ButtonGroup
-        positiveButtonText="Sign and Send"
+        positiveButtonText="Sign All"
         negativeButtonText="Reject"
-        positiveOnClick={signAndSend}
+        positiveOnClick={signAllTransactions}
         negativeOnClick={reject}
       />
       {loading && <Text>Loading...</Text>}
@@ -114,4 +96,4 @@ function SignAndSendTransactionScreen(
   );
 }
 
-export default SignAndSendTransactionScreen;
+export default SignTransactionsScreen;

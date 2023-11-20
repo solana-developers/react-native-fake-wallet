@@ -20,13 +20,12 @@ export async function sendSignedTransactions(
         const transaction: VersionedTransaction =
           VersionedTransaction.deserialize(byteArray);
 
-        const sendOptions: SendOptions = {
-          minContextSlot: minContextSlot,
-          preflightCommitment: 'finalized',
-          skipPreflight: true,
-        };
         const signature: TransactionSignature =
-          await connection.sendTransaction(transaction, sendOptions);
+          await connection.sendTransaction(transaction, {
+            minContextSlot: minContextSlot,
+            preflightCommitment: 'finalized',
+            skipPreflight: true,
+          });
 
         const response = await connection.confirmTransaction(
           signature,
@@ -42,7 +41,7 @@ export async function sendSignedTransactions(
     }),
   );
 
-  return [valid, signatures as Uint8Array[]]
+  return [valid, signatures as Uint8Array[]];
 }
 
 export function signTransactionPayloads(
@@ -55,11 +54,13 @@ export function signTransactionPayloads(
     try {
       const transaction: VersionedTransaction =
         VersionedTransaction.deserialize(new Uint8Array(payload));
-      const signer: Signer = {
-        publicKey: wallet.publicKey,
-        secretKey: wallet.secretKey,
-      };
-      transaction.sign([signer]);
+
+      transaction.sign([
+        {
+          publicKey: wallet.publicKey,
+          secretKey: wallet.secretKey,
+        },
+      ]);
       return transaction.serialize();
     } catch (e) {
       console.log('sign error: ' + e);

@@ -18,12 +18,14 @@ import {
   ReauthorizeDappCompleteResponse,
   ReauthorizeDappResponse,
   SignAndSendTransactionsRequest,
+  SignTransactionsRequest,
   getCallingPackage,
   resolve,
   useMobileWalletAdapterSession,
 } from './lib/mobile-wallet-adapter-walletlib/src';
 import AuthorizeDappRequestScreen from './screens/AuthorizeDappRequestScreen';
 import SignAndSendTransactionScreen from './screens/SignAndSendTransactionScreen';
+import SignTransactionsScreen from './screens/SignTransactionsScreen';
 
 const styles = StyleSheet.create({
   container: {
@@ -119,6 +121,7 @@ function MWAApp() {
           return <SignAndSendTransactionScreen request={currentRequest as SignAndSendTransactionsRequest} />;
       case MWARequestType.SignMessagesRequest:
       case MWARequestType.SignTransactionsRequest:
+        return <SignTransactionsScreen request={currentRequest as SignTransactionsRequest} />;
       default:
         return <Text>TODO Show screen for {currentRequest?.__type}</Text>;
     }
