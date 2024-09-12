@@ -1,22 +1,21 @@
 import {
   Connection,
   Keypair,
-  SendOptions,
   TransactionSignature,
   VersionedTransaction,
-} from '@solana/web3.js';
-import {useState} from 'react';
+} from "@solana/web3.js";
+import { useState } from "react";
 import {
   MWARequestFailReason,
   SignAndSendTransactionsRequest,
   resolve,
-} from '../lib/mobile-wallet-adapter-walletlib/src';
+} from "../lib/mobile-wallet-adapter-walletlib/src";
 
-import {useWallet} from '../components/WalletProvider';
-import {Text, View} from 'react-native';
-import AppInfo from '../components/AppInfo';
-import ButtonGroup from '../components/ButtonGroup';
-import {decode} from 'bs58';
+import { useWallet } from "../components/WalletProvider";
+import { Text, View } from "react-native";
+import AppInfo from "../components/AppInfo";
+import ButtonGroup from "../components/ButtonGroup";
+import { decode } from "bs58";
 
 export async function sendSignedTransactions(
   signedTransactions: Array<Uint8Array>,
@@ -33,18 +32,18 @@ export async function sendSignedTransactions(
         const signature: TransactionSignature =
           await connection.sendTransaction(transaction, {
             minContextSlot: minContextSlot,
-            preflightCommitment: 'finalized',
+            preflightCommitment: "finalized",
             skipPreflight: true,
           });
 
         const response = await connection.confirmTransaction(
           signature,
-          'confirmed',
+          "confirmed",
         );
 
         return decode(signature);
       } catch (error) {
-        console.log('Failed sending transaction ' + error);
+        console.log("Failed sending transaction " + error);
         valid[index] = false;
         return null;
       }
@@ -72,8 +71,8 @@ export function signTransactionPayloads(
         },
       ]);
       return transaction.serialize();
-    } catch (e) {
-      console.log('sign error: ' + e);
+    } catch (error) {
+      console.log("sign error: " + error);
       valid[index] = false;
       return new Uint8Array([]);
     }
@@ -89,12 +88,12 @@ export interface SignAndSendTransactionScreenProps {
 function SignAndSendTransactionScreen(
   props: SignAndSendTransactionScreenProps,
 ) {
-  const {request} = props;
-  const {wallet, connection} = useWallet();
+  const { request } = props;
+  const { wallet, connection } = useWallet();
   const [loading, setLoading] = useState(false);
 
   if (!wallet) {
-    throw new Error('Wallet is null or undefined');
+    throw new Error("Wallet is null or undefined");
   }
 
   const signAndSendTransaction = async (
@@ -130,7 +129,7 @@ function SignAndSendTransactionScreen(
       return;
     }
 
-    resolve(request, {signedTransactions: transactionSignatures});
+    resolve(request, { signedTransactions: transactionSignatures });
   };
 
   const signAndSend = async () => {
@@ -138,19 +137,20 @@ function SignAndSendTransactionScreen(
     setLoading(true);
     try {
       await signAndSendTransaction(wallet, connection, request);
-    } catch (e) {
+    } catch (error) {
       const valid = request.payloads.map(() => false);
       resolve(request, {
         failReason: MWARequestFailReason.InvalidSignatures,
         valid,
       });
+      console.error("Transaction failed:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const reject = () => {
-    resolve(request, {failReason: MWARequestFailReason.UserDeclined});
+    resolve(request, { failReason: MWARequestFailReason.UserDeclined });
   };
 
   return (
@@ -159,12 +159,12 @@ function SignAndSendTransactionScreen(
         title="Sign and Send Transaction"
         appName={request.appIdentity?.identityName}
         cluster={request.cluster}
-        scope={'app'}
+        scope={"app"}
       />
       <Text>Payloads</Text>
       <Text>
-        This request has {request.payloads.length}{' '}
-        {request.payloads.length > 1 ? 'payloads' : 'payload'} to sign.
+        This request has {request.payloads.length}{" "}
+        {request.payloads.length > 1 ? "payloads" : "payload"} to sign.
       </Text>
       <ButtonGroup
         positiveButtonText="Sign and Send"
